@@ -1,0 +1,79 @@
+ 
+1. The function of the code: 
+
+To measure the cosmic shear signal using CCD images of CFHTlens processed by THELI. 
+
+********************************************************************************************
+
+2. To compile and run:
+
+> f77 *.f -o main -lcfitsio
+> ./main
+
+*********************************************************************************************
+3. The structure of the code:
+
+The main program is in 'main.f', which calls the following subroutines:
+
+1) "assign_field_info"(main.f): loading field names & their corresponding exposure names to data groups;
+2) "field_processing"(main.f): this is the main subroutine for image processing & shear measurement, one needs to specify the position of the field in W1;
+3) "shear_FD_test_multiple_field"(shear_field_test.f): comparing the Fourier_Quad shear & the shear due to field distortion;
+4) "shear_FD_test_multiple_field_CFHTlens"(shear_field_test.f): comparing the lensfit shear & the shear due to field distortion;
+
+--------------------------------------------------------------------------------------------
+In our main subroutine "field_processing"(main.f), there are the following subroutines:
+
+1) "read_info"(read_info.f): reading the CCD images, the weight images, the astrometry parameters from the header files, galaxy and star catalogs, and then confirming the source identities, generating the galaxy/star stamps & catalogs;  
+
+>>>>(I) "readimage"(rw_fits_image.f): reading the .fits images;
+
+>>>>(II) "read_head"(read_info.f): reading the astrometry parameters from .head files;
+
+>>>>(III) "mark_image"(read_info.f): creating a mark image of the CCD image so that properties of each pixel can be identified (also using the information of the weight image);
+
+>>>>(IV) "gen_star_catalog"(gen_catalog.f): generating the star catalogs & stamps;	 
+
+>>>>(V) "gen_gal_catalog"(gen_catalog.f): generating the galaxy catalogs & stamps;
+
+>>>> There are several subroutines commonly called in "gen_star_catalog" & "gen_gal_catalog":
+
+>>>>(VI) "coordinate_transfer"(read_info.f): transforming the coordinates from CCD position (in pixel) RA & DEC or the other way;
+
+>>>>(VII) "field_distortion"(read_info.f): calculating the shear due to field distortion at the position of the galaxy;
+
+>>>>(VIII) "check_source" (gen_catalog.f): checking the validity of the source image (galaxy & star);
+
+>>>>(IX) "find_noise" (gen_catalog.f): find the background noise image near the galaxy image;
+
+>>>>(X) "write_stamps"(rw_fits_image.f): writing the galaxy/star stamps to a big stamp.
+ 
+------------------------------------------------------------------------------------------------
+2) "measure_shear"(measure_shear.f): reading the galaxy/star catalogs & loading the corresponding stamps, and then preparing for PSF interpolation, measuring galaxy shear;
+
+>>>>(I) "prepare_PSF"(measure_shear.f): preparing for the PSF interpolation, which includes the following subroutines:
+
+>>>>>>>>(a) "read_star_catalog"(read_catalog.f): reading the star catalog & stamps;
+>>>>>>>>(b) "get_power"(FFTPACK.f): calculating the Fourier power spectrum of an image;
+>>>>>>>>(c) "smooth_image55ln"(universal.f): smoothing the power spectrum of an image;
+>>>>>>>>(d) "regularize_power"(universal.f): subtracting the shot-noise contribution to the power spectrum, and then normalize the power so that the power at k=0 is 1;
+>>>>>>>>(e) "prepare_star_kriging","kriging_setup","poly_PSF_setup","mean_PSF_setup"(interpolate_PSF.f): preparing for the interpolation of PSF with different methods;
+ 
+>>>>(II) "process_galaxy"(measure_shear.f): Measuring galaxy shear using Fourier_Quad method;
+
+>>>>>>>>(a) "read_gal_catalog"(read_catalog.f): reading the galaxy catalog & stamps;
+>>>>>>>>(b) "trim_power"(universal.f): subtracting the shot-noise contribution to the power spectrum;
+>>>>>>>>(c) "get_PSF"(measure_shear.f): getting the PSF at the position of the galaxy;
+>>>>>>>>(d) "get_shear"(measure_shear.f): measuring shear using Fourier_Quad method;
+----------------------------------------------------------------------------------------------------
+
+3) "merge_exposures"(merger_shear_catalog.f): grouping shear catalogs of all exposures in the same field into one big array, and the information of the same galaxy in different exposures are grouped together;
+
+4) "merger_shear_catalog"(merger_shear_catalog.f): merging the shear catalogs of all exposures of one field into one catalog of that field, keeping the identities of the same galaxy on different exposures;
+
+5) "shrink_catalog"(merger_shear_catalog.f): reading the shear catalogs of one field, and collapsing the identities of the same galaxy on different exposures into a single identity;
+
+6) "w_SNR_relation"(w_SNR_relation.f): plot the relation between the galaxy weight function and the signal-to-noise-ratio of the galaxy.
+------------------------------------------------------------------------------------------
+
+***********************************************************************************************
+
